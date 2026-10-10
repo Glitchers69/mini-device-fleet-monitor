@@ -7,6 +7,7 @@ from devices.views import (
     DeviceListCreateView,
     DeviceHeartbeatView,
     DeviceDetailView,
+    FleetSummaryView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     re_path(r'^devices/?$', DeviceListCreateView.as_view(), name='device-list-create'),
     re_path(r'^devices/(?P<pk>[^/]+)/heartbeat/?$', DeviceHeartbeatView.as_view(), name='device-heartbeat'),
     re_path(r'^devices/(?P<pk>[^/]+)/?$', DeviceDetailView.as_view(), name='device-detail'),
+    re_path(r'^summary/?$', FleetSummaryView.as_view(), name='fleet-summary'),
 ]

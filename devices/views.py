@@ -13,6 +13,7 @@ from devices.serializers import (
     HeartbeatSerializer,
     DeviceReadSerializer,
 )
+from devices.utils import compute_status
 
 
 def root_health_view(request):
@@ -113,3 +114,25 @@ class DeviceDetailView(APIView):
         now = timezone.now()
         serializer = DeviceReadSerializer(device, context={'now': now})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class FleetSummaryView(APIView):
+    """
+    GET /summary: Retrieve fleet health summary (FR-6).
+    Returns {"total": N, "online": M, "offline": N - M} computed at request time.
+    """
+
+    def get(self, request, *args, **kwargs):
+        devices = Device.objects.all()
+        now = timezone.now()
+        total = len(devices)
+        online = sum(1 for d in devices if compute_status(d.last_heartbeat, now=now) == "ONLINE")
+        offline = total - online
+        return Response(
+            {
+                "total": total,
+                "online": online,
+                "offline": offline,
+            },
+            status=status.HTTP_200_OK
+        )
