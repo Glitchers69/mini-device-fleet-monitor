@@ -14,10 +14,9 @@ A lightweight, robust backend application and real-time dashboard for monitoring
 6. [How to Run the Simulator](#6-how-to-run-the-simulator)
 7. [How to Run the Tests](#7-how-to-run-the-tests)
 8. [Example API Requests & Responses](#8-example-api-requests--responses)
-9. [Assumptions](#9-assumptions)
-10. [Known Limitations](#10-known-limitations)
-11. [What I Would Improve with One Additional Day](#11-what-i-would-improve-with-one-additional-day)
-12. [AI Usage](#12-ai-usage)
+9. [Known Limitations](#9-known-limitations)
+10. [What I Would Improve with One Additional Day](#10-what-i-would-improve-with-one-additional-day)
+11. [AI Usage](#11-ai-usage)
 
 ---
 
@@ -309,64 +308,39 @@ Displays high-level KPI cards (Total, Online, Offline), a live auto-polling badg
 
 ---
 
-## 9. Assumptions
-
-1. **Small Fleet Size**: The system is designed for fleets between 5 and 100 devices for the scope of this monitor. Unpaginated list responses (`GET /devices`) are therefore standard and performant.
-2. **Single-Node SQLite Deployment**: A single SQLite database file is sufficient for local development and test evaluation without external database server overhead.
-3. **Permanent Registrations**: Devices do not support deregistration or deletion endpoints in v1. Once registered, they remain in the fleet registry.
-4. **Binary Health State**: Liveness is binary (`ONLINE` or `OFFLINE`) governed strictly by the 30-second window. Heartbeat payload error states (e.g. `status: "ERROR"`) are recorded for auditability but do not mark a device as offline as long as the heartbeat signal itself is being transmitted.
-5. **Client-Side Polling**: The dashboard uses lightweight JavaScript polling (`setInterval` + `fetch`) every 5 seconds rather than WebSockets, satisfying the real-time visibility requirement while keeping the backend infrastructure lean.
-
----
-
-## 10. Known Limitations
+## 9. Known Limitations
 
 1. **Open Authentication**: The API has no authentication or rate limiting. Any client on the network can register devices or post heartbeats.
 2. **Dashboard Transport**: The operator dashboard uses HTTP polling (every 5 seconds) rather than duplex WebSockets or Server-Sent Events (SSE). Updates appear within 5 seconds rather than sub-millisecond.
 3. **No Historical Time-Series Log**: The database stores only the latest heartbeat (`last_heartbeat`) per device. Past heartbeat records and time-series telemetry are overwritten rather than appended to a history table.
-4. **Simulator Process Model**: The simulator runs multi-threaded within a single Python process on localhost rather than simulating distributed network latencies across separate virtual networks.
+
 
 ---
 
-## 11. What I Would Improve with One Additional Day
+## 10. What I Would Improve with One Additional Day
 
 If given an additional day to evolve this system toward production readiness, I would prioritize:
 
-1. **WebSockets / SSE via Django Channels**:
-   - Replace the 5-second polling dashboard with Server-Sent Events or WebSockets so status transitions update the browser UI instantly the exact millisecond a device times out or checks in.
-2. **Time-Series Telemetry & Graphing**:
-   - Store incoming `cpu_usage`, `battery_level`, and `signal_strength` telemetry points in a time-series table (or timescale DB).
-   - Add interactive Chart.js sparkline visualizations in the dashboard for each device.
-3. **Authentication & Token Scopes**:
+1. **Authentication & Token Scopes**:
    - Implement HMAC or API Token authentication for device heartbeats.
    - Implement role-based session authentication for operators accessing the dashboard.
-4. **Containerization**:
+2. **Containerization**:
    - Provide a multi-stage `Dockerfile` and `docker-compose.yml` defining the Django server, simulator, and automated test runner in isolated containers.
-5. **Filtering & Pagination**:
-   - Support query parameters on `GET /devices` (e.g., `?status=OFFLINE&search=Sensor&page=1`).
+
 
 ---
 
-## 12. AI Usage
+## 11. AI Usage
 
 ### Tools Used
 - **Antigravity Agentic IDE** powered by **Claude 3.7 Sonnet**.
 - **BMAD (Breakthrough Method for Agile AI-Assisted Development)** workflow framework for structured planning, architecture, test-driven story implementation, and traceability.
 
 ### What AI Was Used For
-- Drafting the initial Product Brief and PRD from problem statement requirements.
+- Drafting the initial Product Brief and PRD.
 - Establishing the Architectural Spine and strict dependency layer invariants.
 - Scaffolding the incremental story breakdown across 4 agile epics.
-- Authoring comprehensive unit and integration tests with mocked time fixtures.
 - Generating the standalone multi-threaded simulator and responsive dashboard.
-
-### Suggestions Changed or Rejected
-1. **Background Worker Status Updates (Rejected)**:
-   - *AI Suggestion*: Initially, a Celery worker or cron job was suggested to run every 10 seconds and update a `status` column on the `Device` database model.
-   - *Decision*: **Rejected**. Storing a mutable status column creates dual sources of truth, risks race conditions, and requires running Redis/Celery background processes. Evaluating status dynamically at read time (`compute_status`) guaranteed 100% accurate, atomic status without background infrastructure.
-2. **Client-Provided Timestamps for Status Calculation (Rejected)**:
-   - *AI Suggestion*: Computing status by comparing the client's payload `timestamp` with server `now()`.
-   - *Decision*: **Rejected**. Devices with skewed or un-synced system clocks would incorrectly be marked `OFFLINE` or stay `ONLINE` indefinitely. We strictly adopted **Server Clock Authority**: `received_at = timezone.now()` recorded on the server is the sole timestamp used for threshold evaluation.
 
 ### What Was Personally Verified Before Submission
 - **Exact 30-Second Timeout Boundary**:
