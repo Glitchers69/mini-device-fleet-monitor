@@ -41,3 +41,22 @@ class DeviceRegistrationSerializer(serializers.ModelSerializer):
         if not cleaned:
             raise serializers.ValidationError("Device name cannot be empty.")
         return cleaned
+
+
+class HeartbeatSerializer(serializers.Serializer):
+    """
+    Serializer for validating device heartbeat payloads via POST /devices/{id}/heartbeat.
+    """
+    timestamp = serializers.DateTimeField(required=True)
+    status = serializers.CharField(
+        max_length=10,
+        required=True,
+        allow_blank=False,
+        trim_whitespace=True
+    )
+
+    def validate_status(self, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError("Status cannot be empty.")
+        return cleaned
