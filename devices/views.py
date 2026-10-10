@@ -8,7 +8,11 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from devices.models import Device
-from devices.serializers import DeviceRegistrationSerializer, HeartbeatSerializer
+from devices.serializers import (
+    DeviceRegistrationSerializer,
+    HeartbeatSerializer,
+    DeviceReadSerializer,
+)
 
 
 def root_health_view(request):
@@ -18,11 +22,15 @@ def root_health_view(request):
 
 class DeviceListCreateView(APIView):
     """
-    POST /devices: Register a new device.
-    Rejects missing fields with 400 Bad Request.
-    Rejects duplicate IDs with 409 Conflict.
-    Returns 201 Created on success.
+    GET /devices: List all registered devices with dynamically computed status (FR-4).
+    POST /devices: Register a new device (FR-1).
     """
+
+    def get(self, request, *args, **kwargs):
+        devices = Device.objects.all()
+        now = timezone.now()
+        serializer = DeviceReadSerializer(devices, many=True, context={'now': now})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         # If payload is not a dictionary (e.g. invalid json format), reject as 400

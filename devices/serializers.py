@@ -3,6 +3,7 @@ Serializers for the devices app.
 """
 from rest_framework import serializers
 from devices.models import Device
+from devices.utils import compute_status
 
 
 class DeviceRegistrationSerializer(serializers.ModelSerializer):
@@ -60,3 +61,19 @@ class HeartbeatSerializer(serializers.Serializer):
         if not cleaned:
             raise serializers.ValidationError("Status cannot be empty.")
         return cleaned
+
+
+class DeviceReadSerializer(serializers.ModelSerializer):
+    """
+    Serializer for reading device records (GET /devices and GET /devices/{id}).
+    Computes status dynamically at request time (AD-2, FR-3, FR-4).
+    """
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Device
+        fields = ['id', 'name', 'status', 'last_heartbeat']
+
+    def get_status(self, obj):
+        now = self.context.get('now') if self.context else None
+        return compute_status(obj.last_heartbeat, now=now)
