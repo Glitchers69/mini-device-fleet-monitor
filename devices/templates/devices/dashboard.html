@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Device Fleet Monitor — Operator Dashboard</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --card-hover: #1e293b;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --primary: #3b82f6;
+      --online-bg: rgba(16, 185, 129, 0.15);
+      --online-border: #10b981;
+      --online-text: #34d399;
+      --offline-bg: rgba(239, 68, 68, 0.15);
+      --offline-border: #ef4444;
+      --offline-text: #f87171;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .header-titles h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-titles p {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--online-text);
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .pulsing-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 0.45rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn:hover {
+      background: var(--card-hover);
+      border-color: #4b5563;
+    }
+
+    /* Summary Metric Cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .metric-card:hover {
+      border-color: #374151;
+      transform: translateY(-2px);
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+      letter-spacing: -0.03em;
+    }
+
+    .metric-icon {
+      font-size: 2rem;
+      opacity: 0.8;
+    }
+
+    .metric-card.total { border-top: 3px solid var(--primary); }
+    .metric-card.online { border-top: 3px solid var(--online-border); }
+    .metric-card.offline { border-top: 3px solid var(--offline-border); }
+
+    .metric-card.online .metric-value { color: var(--online-text); }
+    .metric-card.offline .metric-value { color: var(--offline-text); }
+
+    /* Device List Section */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .fleet-table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    thead th {
+      background: rgba(17, 24, 39, 0.8);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    tbody td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 0.9rem;
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .device-id {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #93c5fd;
+      background: rgba(59, 130, 246, 0.1);
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.85rem;
+    }
+
+    .device-name {
+      font-weight: 500;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .badge-online {
+      background: var(--online-bg);
+      border: 1px solid var(--online-border);
+      color: var(--online-text);
+    }
+
+    .badge-offline {
+      background: var(--offline-bg);
+      border: 1px solid var(--offline-border);
+      color: var(--offline-text);
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .badge-online .badge-dot {
+      background-color: var(--online-border);
+      box-shadow: 0 0 6px var(--online-border);
+    }
+
+    .badge-offline .badge-dot {
+      background-color: var(--offline-border);
+    }
+
+    .timestamp-cell {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .time-relative {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .time-absolute {
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+
+    .empty-state {
+      padding: 3rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      opacity: 0.6;
+    }
+
+    .empty-state p {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--text-dim);
+    }
+
+    footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-titles">
+        <h1>📡 Mini Device Fleet Monitor</h1>
+        <p>Live device heartbeat surveillance and fleet status tracking</p>
+      </div>
+      <div class="header-actions">
+        <div class="status-pill">
+          <div class="pulsing-dot"></div>
+          <span>Auto-refresh active (5s)</span>
+        </div>
+        <button class="btn" id="manual-refresh" title="Fetch latest status">
+          🔄 Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- Fleet Metric Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card total">
+        <div>
+          <div class="metric-label">Total Devices</div>
+          <div class="metric-value" id="count-total">0</div>
+        </div>
+        <div class="metric-icon">🖥️</div>
+      </div>
+      <div class="metric-card online">
+        <div>
+          <div class="metric-label">Online Devices</div>
+          <div class="metric-value" id="count-online">0</div>
+        </div>
+        <div class="metric-icon">🟢</div>
+      </div>
+      <div class="metric-card offline">
+        <div>
+          <div class="metric-label">Offline Devices</div>
+          <div class="metric-value" id="count-offline">0</div>
+        </div>
+        <div class="metric-icon">🔴</div>
+      </div>
+    </div>
+
+    <!-- Device Fleet Table -->
+    <div class="section-header">
+      <h2 class="section-title">Registered Fleet</h2>
+      <span style="font-size: 0.8rem; color: var(--text-dim);" id="last-updated">Updating...</span>
+    </div>
+
+    <div class="fleet-table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Device ID</th>
+            <th>Name</th>
+            <th>Status (30s Threshold)</th>
+            <th>Last Heartbeat</th>
+          </tr>
+        </thead>
+        <tbody id="device-table-body">
+          <tr>
+            <td colspan="4" class="empty-state">
+              <div class="empty-state-icon">📡</div>
+              <div>Connecting to fleet monitor...</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      Mini Device Fleet Monitor &bull; Status computed dynamically at read time &bull; 30s Online Threshold
+    </footer>
+  </div>
+
+  <script>
+    // Format timestamp relative to now
+    function formatRelativeTime(isoString) {
+      if (!isoString) return { relative: "Never", absolute: "—" };
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return { relative: "Invalid", absolute: "—" };
+
+      const now = new Date();
+      const diffSec = Math.max(0, Math.floor((now - date) / 1000));
+
+      let relativeText = "";
+      if (diffSec < 5) relativeText = "Just now";
+      else if (diffSec < 60) relativeText = `${diffSec}s ago`;
+      else if (diffSec < 3600) relativeText = `${Math.floor(diffSec / 60)}m ago`;
+      else relativeText = `${Math.floor(diffSec / 3600)}h ago`;
+
+      const absoluteText = date.toISOString().replace("T", " ").replace("Z", " UTC");
+      return { relative: relativeText, absolute: absoluteText };
+    }
+
+    let devicesData = [];
+
+    async function fetchFleetData() {
+      try {
+        // Fetch fleet summary
+        const summaryRes = await fetch("/summary");
+        if (summaryRes.ok) {
+          const summary = await summaryRes.json();
+          document.getElementById("count-total").textContent = summary.total ?? 0;
+          document.getElementById("count-online").textContent = summary.online ?? 0;
+          document.getElementById("count-offline").textContent = summary.offline ?? 0;
+        }
+
+        // Fetch device list
+        const devicesRes = await fetch("/devices");
+        if (devicesRes.ok) {
+          devicesData = await devicesRes.json();
+          renderDeviceTable(devicesData);
+        }
+
+        const now = new Date();
+        document.getElementById("last-updated").textContent =
+          `Last updated: ${now.toLocaleTimeString()}`;
+      } catch (err) {
+        console.error("Failed to fetch fleet data:", err);
+      }
+    }
+
+    function renderDeviceTable(devices) {
+      const tbody = document.getElementById("device-table-body");
+      if (!devices || devices.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="empty-state">
+              <div class="empty-state-icon">🛰️</div>
+              <strong>No devices registered yet</strong>
+              <p>Start the simulator: <code>python simulator/run.py</code> to see devices stream heartbeats.</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let html = "";
+      for (const dev of devices) {
+        const isOnline = dev.status === "ONLINE";
+        const badgeClass = isOnline ? "badge-online" : "badge-offline";
+        const timeInfo = formatRelativeTime(dev.last_heartbeat);
+
+        html += `
+          <tr>
+            <td><span class="device-id">${escapeHtml(dev.id)}</span></td>
+            <td><span class="device-name">${escapeHtml(dev.name)}</span></td>
+            <td>
+              <span class="badge ${badgeClass}">
+                <span class="badge-dot"></span>
+                ${escapeHtml(dev.status)}
+              </span>
+            </td>
+            <td>
+              <div class="timestamp-cell">
+                <span class="time-relative">${escapeHtml(timeInfo.relative)}</span>
+                <span class="time-absolute">${escapeHtml(timeInfo.absolute)}</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+      tbody.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Manual refresh button listener
+    document.getElementById("manual-refresh").addEventListener("click", () => {
+      fetchFleetData();
+    });
+
+    // Initial fetch on page load
+    fetchFleetData();
+
+    // Auto-refresh poll every 5000 milliseconds (FR-8)
+    setInterval(fetchFleetData, 5000);
+
+    // Refresh relative timestamps locally every 1 second for smooth ticking
+    setInterval(() => {
+      if (devicesData && devicesData.length > 0) {
+        renderDeviceTable(devicesData);
+      }
+    }, 1000);
+  </script>
+</body>
+</html>

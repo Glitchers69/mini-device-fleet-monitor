@@ -2,6 +2,7 @@
 Views for the devices app.
 """
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,6 +20,13 @@ from devices.utils import compute_status
 def root_health_view(request):
     """Root response confirming the application server is running."""
     return JsonResponse({"status": "running", "app": "fleet_monitor"})
+
+
+def dashboard_view(request):
+    """
+    GET /dashboard/: Serves the live operator web dashboard (FR-8).
+    """
+    return render(request, 'devices/dashboard.html')
 
 
 class DeviceListCreateView(APIView):
