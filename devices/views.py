@@ -18,8 +18,20 @@ from devices.utils import compute_status
 
 
 def root_health_view(request):
-    """Root response confirming the application server is running."""
-    return JsonResponse({"status": "running", "app": "fleet_monitor"})
+    """
+    Root view: serves operator dashboard for browser requests (text/html),
+    or health check JSON if requested via API client.
+    """
+    accept = request.headers.get('Accept', '')
+    if 'text/html' in accept and 'application/json' not in accept:
+        return render(request, 'devices/dashboard.html')
+    return JsonResponse({
+        "status": "running",
+        "app": "fleet_monitor",
+        "dashboard": "/dashboard/",
+        "devices": "/devices/",
+        "summary": "/summary/",
+    })
 
 
 def dashboard_view(request):
