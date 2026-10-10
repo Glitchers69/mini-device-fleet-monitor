@@ -60,7 +60,7 @@ class DeviceListCreateView(APIView):
 
 class DeviceHeartbeatView(APIView):
     """
-    POST /devices/{id}/heartbeat: Record a device heartbeat.
+    POST /devices/{id}/heartbeat: Record a device heartbeat (FR-2).
     Returns 200 OK on success with server-side received timestamp recorded.
     Returns 404 Not Found if device is unknown.
     Returns 400 Bad Request on invalid payload or missing fields.
@@ -92,3 +92,24 @@ class DeviceHeartbeatView(APIView):
         device.save(update_fields=['last_heartbeat', 'last_client_timestamp', 'last_status'])
 
         return Response({"status": "OK"}, status=status.HTTP_200_OK)
+
+
+class DeviceDetailView(APIView):
+    """
+    GET /devices/{id}: Retrieve single device record with dynamically computed status (FR-5).
+    Returns 200 OK with id, name, status, and last_heartbeat.
+    Returns 404 Not Found if device does not exist.
+    """
+
+    def get(self, request, pk=None, *args, **kwargs):
+        try:
+            device = Device.objects.get(id=pk)
+        except Device.DoesNotExist:
+            return Response(
+                {"error": "Device not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        now = timezone.now()
+        serializer = DeviceReadSerializer(device, context={'now': now})
+        return Response(serializer.data, status=status.HTTP_200_OK)
